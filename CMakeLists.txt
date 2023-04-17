@@ -3,7 +3,8 @@ project(mansion_seeds)
 
 set(CMAKE_CXX_STANDARD 20)
 set(ABSL_PROPAGATE_CXX_STD 1)
-#set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -flto")
+
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -flto -march=native")
 
 find_package(PkgConfig REQUIRED)
 #pkg_check_modules(ABSL_HASHMAP REQUIRED IMPORTED_TARGET absl_flat_hash_map)
