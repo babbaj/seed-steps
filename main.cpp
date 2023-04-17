@@ -3,13 +3,22 @@
 #include <cstdint>
 #include <optional>
 #include <chrono>
+#include <thread>
+#include <vector>
+#include <filesystem>
+#include <span>
+#include <fstream>
+
 #include <absl/container/flat_hash_map.h>
 #include <fmt/core.h>
 
 constexpr int64_t WORLD_SEED = -4172144997902289642LL;
 constexpr int64_t chunkZMultInv248 = 211541297333629LL; // https://www.wolframalpha.com/input?i=132897987541%5E-1+mod+2%5E48
 
-constexpr auto WOODLAND_BOUNDS = 23440 / 2;
+constexpr int64_t WOODLAND_BOUNDS = 23440 / 2;
+constexpr int64_t TOTAL_MANSIONS = (WOODLAND_BOUNDS * 2 + 1) * (WOODLAND_BOUNDS * 2 + 1);
+constexpr int64_t MANSIONS_IN_ROW = (WOODLAND_BOUNDS * 2 + 1);
+
 
 constexpr auto RAND_MASK = (1LL << 48) - 1;
 
@@ -38,6 +47,7 @@ std::optional<std::pair<int, int>> woodlandValid(int64_t candidate) {
 
 struct SmallSeed {
     int64_t bits:48;
+    //int64_t bits;
 
     explicit SmallSeed(int64_t seed): bits(seed) {}
 
@@ -55,10 +65,19 @@ bool operator==(SmallSeed lhs, SmallSeed rhs) {
     return lhs.bits == rhs.bits;
 }
 
-struct SmallInt {
-    int bits:24;
+/*namespace std {
+    template <> struct hash<SmallSeed> {
+        size_t operator()(SmallSeed x) const {
+            return x.bits;
+        }
+    };
+}*/
 
-    explicit SmallInt(int x): bits(x) {}
+struct SmallInt {
+    int bits:16;
+    //int bits;
+
+    SmallInt(int x): bits(x) {}
     explicit SmallInt() = default;
 
     [[nodiscard]] int toInt() const {
@@ -72,8 +91,74 @@ struct Pos {
     SmallInt z{};
 };
 
+std::pair<int, Pos> stepsForSeed(int64_t seed, const absl::flat_hash_map<SmallSeed, Pos>& map) {
+    int i = 0;
+    while (true) {
+        seed = nextSeed(seed);
+        auto it = map.find(SmallSeed{seed});
+        if (it != map.end()) {
+            return {i, it->second};
+        }
+        i++;
+    }
+}
+
+struct Result {
+    Pos start;
+    Pos end;
+    int32_t steps;
+} __attribute__((packed));
+
+constexpr uint64_t EXPECTED_FILE_SIZE = MANSIONS_IN_ROW * sizeof(Result);
+
+void serializeSmallInt(SmallInt x, char* out) {
+    auto i = x.bits;
+    out[0] = (char) (i & 0xFF);
+    out[1] = (char) (i >> 8 & 0xFF);
+}
+void serializeSmallSeed(SmallSeed x, char* out) {
+    auto i = x.bits;
+    out[0] = (char) (i & 0xFF);
+    out[1] = (char) (i >> 8 & 0xFF);
+    out[2] = (char) (i >> 16 & 0xFF);
+    out[3] = (char) (i >> 24 & 0xFF);
+    out[4] = (char) (i >> 32 & 0xFF);
+    out[5] = (char) (i >> 40 & 0xFF);
+}
+void serializeInt(int32_t x, char* out) {
+    out[0] = (char) (x & 0xFF);
+    out[1] = (char) (x >> 8 & 0xFF);
+    out[2] = (char) (x >> 16 & 0xFF);
+    out[3] = (char) (x >> 24 & 0xFF);
+}
+
+std::array<char, sizeof(Result)> serializeResult(const Result& result) {
+    std::array<char, sizeof(Result)> out{};
+    char* ptr = out.data();
+    serializeSmallInt(result.start.x, ptr);
+    ptr += 2;
+    serializeSmallInt(result.start.z, ptr);
+    ptr += 2;
+    serializeSmallInt(result.end.x, ptr);
+    ptr += 2;
+    serializeSmallInt(result.end.z, ptr);
+    ptr += 2;
+    serializeInt(result.steps, ptr);
+    return out;
+}
+
+void writeResults(std::span<Result> results, const std::filesystem::path& path) {
+    std::ofstream output(path, std::ios::out | std::ios::binary | std::ios::trunc);
+    for (const auto& res : results) {
+        auto serialized = serializeResult(res);
+        output.write(serialized.data(), serialized.size());
+    }
+}
+
 
 int main() {
+    //std::cout << EXPECTED_FILE_SIZE << std::endl;
+    //return 0;
     auto bigMap = absl::flat_hash_map<SmallSeed, Pos>{};
     constexpr auto neededCapacity = (WOODLAND_BOUNDS * 2) * (WOODLAND_BOUNDS * 2);
     bigMap.reserve(neededCapacity + 1000);
@@ -84,51 +169,57 @@ int main() {
             bigMap[SmallSeed{woodlandMansionSeed(x, z)}] = Pos{SmallInt{x}, SmallInt{z}};
         }
     }
+    /*for (int x = 0; x < 1000; x++) {
+        for (int z = 0; z < 1000; z++) {
+            bigMap[SmallSeed{woodlandMansionSeed(x, z)}] = Pos{SmallInt{x}, SmallInt{z}};
+        }
+    }*/
     std::cout << "bigMap is " << bigMap.size() << " elements large" << std::endl;
 
-    int64_t currentStepIdx = 0;
-    int64_t stepIdxOfPreviousWoodlandSeed = -1;
-    int previousWoodlandX = -10000000;
-    int previousWoodlandZ = -10000000;
-    int64_t stopAfter = -1;
-    int64_t seed = 0;
+    std::filesystem::path outDir{"out"};
+    std::filesystem::create_directory(outDir);
+    const auto threadCount = std::thread::hardware_concurrency();
+    std::atomic_int result_count{};
+    std::vector<std::jthread> threads;
     auto prev_time = std::chrono::steady_clock::now();
-    for (;;) {
-        auto it = bigMap.find(SmallSeed{seed});
-        if (it != bigMap.end()) {
-            const bool lastRun = seed == stopAfter;
-            const auto stepsSincePrev = currentStepIdx - stepIdxOfPreviousWoodlandSeed;
-            stepIdxOfPreviousWoodlandSeed = currentStepIdx;
-            const auto myX = it->second.x.toInt();
-            const auto myZ = it->second.z.toInt();
-            if (stopAfter == -1) {
-                stopAfter = seed;
-            } else {
-                //std::cout << "Woodland seed " << seed << " decodes to " << myX << ", " << myZ << " and the previous woodland was " << stepsSincePrev << " steps ago and it was " << previousWoodlandX << ", " << previousWoodlandZ << std::endl;
-                //constexpr auto end = (1LL << 48);
-                //const auto percent = ((double)currentStepIdx / (double)end) * 100;
-                //fmt::print("At step {} out of {} ({:.2f}%)\n", currentStepIdx, end, percent);
-
-                // write this to the file i guess
+    for (int i = 0; i < threadCount; i++) {
+        threads.emplace_back([i, threadCount, &bigMap, &result_count, &prev_time, outDir] {
+            std::vector<Result> results;
+            results.reserve(MANSIONS_IN_ROW);
+            auto start_time = std::chrono::steady_clock::now();
+            for (int x = -WOODLAND_BOUNDS; x <= WOODLAND_BOUNDS; x++) {
+                auto file = outDir / std::to_string(x);
+                auto err = std::error_code{};
+                auto size = std::filesystem::file_size(file, err);
+                // if file exists and the size is what we expect, skip
+                if (!err && size == EXPECTED_FILE_SIZE) {
+                    continue;
+                }
+                if (abs(x) % threadCount != i) continue;
+                for (int z = -WOODLAND_BOUNDS; z <= WOODLAND_BOUNDS; z++) {
+                    auto seed = woodlandMansionSeed(x, z);
+                    auto [steps, pos] = stepsForSeed(seed, bigMap);
+                    results.push_back(Result{
+                        .start = {x, z},
+                        .end = pos,
+                        .steps = steps
+                    });
+                    /*result_count++;
+                    if (result_count % 1'000 == 0) {
+                        auto time = std::chrono::steady_clock::now();
+                        auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(time - prev_time).count();
+                        prev_time = time;
+                        constexpr auto end = TOTAL_MANSIONS;
+                        const auto percent = ((double)result_count / (double)end) * 100;
+                        fmt::print("At step {} out of {} ({:.4f}%)\n", result_count, end, percent);
+                        fmt::print("1000 results took {} ms ({} s)\n", millis, millis / 1000);
+                    }*/
+                }
+                auto end_time = std::chrono::steady_clock::now();
+                auto duration = std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time).count();
+                fmt::print("x {} took {}s, writing file now\n", x, duration);
+                writeResults(results, file);
             }
-
-            previousWoodlandX = myX;
-            previousWoodlandZ = myZ;
-            if (lastRun) {
-                break;
-            }
-        }
-        if (currentStepIdx % 100'000'000 == 0) {
-            auto time = std::chrono::steady_clock::now();
-            auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(time - prev_time).count();
-            prev_time = time;
-            constexpr auto end = (1LL << 48);
-            const auto percent = ((double)currentStepIdx / (double)end) * 100;
-            fmt::print("At step {} out of {} ({:.4f}%)\n", currentStepIdx, end, percent);
-            fmt::print("100,000,000 steps took {} ms ({} s)\n", millis, millis / 1000);
-        }
-        seed = nextSeed(seed);
-        currentStepIdx++;
+        });
     }
-
 }
