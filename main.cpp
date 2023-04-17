@@ -92,7 +92,7 @@ struct Pos {
 };
 
 std::pair<int, Pos> stepsForSeed(int64_t seed, const absl::flat_hash_map<SmallSeed, Pos>& map) {
-    int i = 0;
+    int i = 1;
     while (true) {
         seed = nextSeed(seed);
         auto it = map.find(SmallSeed{seed});
