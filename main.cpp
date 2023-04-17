@@ -163,8 +163,9 @@ int main() {
     constexpr auto neededCapacity = (WOODLAND_BOUNDS * 2) * (WOODLAND_BOUNDS * 2);
     bigMap.reserve(neededCapacity + 1000);
     std::cout << woodlandMansionSeed(-69, 420) << std::endl;
-
+    std::cout << "meow!" << std::endl;
     for (int x = -WOODLAND_BOUNDS; x <= WOODLAND_BOUNDS; x++) {
+        if (!(x&127))
         fmt::print("generating the big map currently at x={}\n", x);
         for (int z = -WOODLAND_BOUNDS; z <= WOODLAND_BOUNDS; z++) {
             bigMap[SmallSeed{woodlandMansionSeed(x, z)}] = Pos{SmallInt{x}, SmallInt{z}};
@@ -200,7 +201,7 @@ int main() {
                     continue;
                 }
                 for (int z = -WOODLAND_BOUNDS; z <= WOODLAND_BOUNDS; z++) {
-                    if (!(z & 127))
+                    if (!(z & 8191))
                     fmt::print("thread {} is at x={} z={}\n", i, x, z);
                     auto seed = woodlandMansionSeed(x, z);
                     auto [steps, pos] = stepsForSeed(seed, bigMap);
@@ -210,14 +211,14 @@ int main() {
                         .steps = steps
                     });
                     result_count++;
-                    if (result_count % 1'000 == 0) {
+                    if (result_count % 20'000 == 0) {
                         auto time = std::chrono::steady_clock::now();
                         auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(time - prev_time).count();
                         prev_time = time;
                         constexpr auto end = TOTAL_MANSIONS;
                         const auto percent = ((double)result_count / (double)end) * 100;
                         fmt::print("At step {} out of {} ({:.4f}%)\n", result_count, end, percent);
-                        fmt::print("1000 results took {} ms ({} s)\n", millis, millis / 1000);
+                        fmt::print("20000 results took {} ms ({} s)\n", millis, millis / 1000);
                     }
                 }
                 auto end_time = std::chrono::steady_clock::now();
