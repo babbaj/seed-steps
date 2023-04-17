@@ -163,10 +163,11 @@ int main() {
     constexpr auto neededCapacity = (WOODLAND_BOUNDS * 2) * (WOODLAND_BOUNDS * 2);
     bigMap.reserve(neededCapacity + 1000);
     std::cout << woodlandMansionSeed(-69, 420) << std::endl;
-    std::cout << "meow!" << std::endl;
+    std::cout << "meow! v2" << std::endl;
     for (int x = -WOODLAND_BOUNDS; x <= WOODLAND_BOUNDS; x++) {
         if (!(x&127))
         fmt::print("generating the big map currently at x={}\n", x);
+        std::fflush(stdout);
         for (int z = -WOODLAND_BOUNDS; z <= WOODLAND_BOUNDS; z++) {
             bigMap[SmallSeed{woodlandMansionSeed(x, z)}] = Pos{SmallInt{x}, SmallInt{z}};
         }
@@ -182,6 +183,7 @@ int main() {
     std::filesystem::create_directory(outDir);
     const auto threadCount = std::thread::hardware_concurrency();
     fmt::print("thread count {}\n", threadCount);
+    std::fflush(stdout);
     std::atomic_int result_count{};
     std::vector<std::jthread> threads;
     auto prev_time = std::chrono::steady_clock::now();
@@ -198,11 +200,14 @@ int main() {
                 if (abs(x) % threadCount != i) continue;
                 if (!err && size == EXPECTED_FILE_SIZE) {
                     fmt::print("skipping already completed file {}\n", x);
+                    std::fflush(stdout);
                     continue;
                 }
                 for (int z = -WOODLAND_BOUNDS; z <= WOODLAND_BOUNDS; z++) {
-                    if (!(z & 8191))
-                    fmt::print("thread {} is at x={} z={}\n", i, x, z);
+                    if (!(z & 8191)){
+                        fmt::print("thread {} is at x={} z={}\n", i, x, z);
+                        std::fflush(stdout);
+                    }
                     auto seed = woodlandMansionSeed(x, z);
                     auto [steps, pos] = stepsForSeed(seed, bigMap);
                     results.push_back(Result{
@@ -219,11 +224,13 @@ int main() {
                         const auto percent = ((double)result_count / (double)end) * 100;
                         fmt::print("At step {} out of {} ({:.4f}%)\n", result_count, end, percent);
                         fmt::print("20000 results took {} ms ({} s)\n", millis, millis / 1000);
+                        std::fflush(stdout);
                     }
                 }
                 auto end_time = std::chrono::steady_clock::now();
                 auto duration = std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time).count();
                 fmt::print("x {} took {}s, writing file now\n", x, duration);
+                std::fflush(stdout);
                 writeResults(results, file);
             }
         });

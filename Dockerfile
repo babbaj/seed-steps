@@ -19,7 +19,7 @@ WORKDIR /app
 # Build the application with clang 15
 RUN mkdir build && \
     cd build && \
-    CC=clang CXX=clang++ cmake .. && \
+    CC=clang CXX=clang++ cmake -DCMAKE_BUILD_TYPE=Release .. && \
     make -j`nproc`
 
 # Set the entrypoint to the application
