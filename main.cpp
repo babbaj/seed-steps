@@ -15,7 +15,7 @@
 constexpr int64_t WORLD_SEED = -4172144997902289642LL;
 constexpr int64_t chunkZMultInv248 = 211541297333629LL; // https://www.wolframalpha.com/input?i=132897987541%5E-1+mod+2%5E48
 
-constexpr int64_t WOODLAND_BOUNDS = 23440 / 2;
+constexpr int64_t WOODLAND_BOUNDS = 23440;
 constexpr int64_t TOTAL_MANSIONS = (WOODLAND_BOUNDS * 2 + 1) * (WOODLAND_BOUNDS * 2 + 1);
 constexpr int64_t MANSIONS_IN_ROW = (WOODLAND_BOUNDS * 2 + 1);
 
@@ -113,8 +113,8 @@ constexpr uint64_t EXPECTED_FILE_SIZE = MANSIONS_IN_ROW * sizeof(Result);
 
 void serializeSmallInt(SmallInt x, char* out) {
     auto i = x.bits;
-    out[0] = (char) (i & 0xFF);
-    out[1] = (char) (i >> 8 & 0xFF);
+    out[1] = (char) (i & 0xFF);
+    out[0] = (char) (i >> 8 & 0xFF);
 }
 void serializeSmallSeed(SmallSeed x, char* out) {
     auto i = x.bits;
@@ -126,10 +126,10 @@ void serializeSmallSeed(SmallSeed x, char* out) {
     out[5] = (char) (i >> 40 & 0xFF);
 }
 void serializeInt(int32_t x, char* out) {
-    out[0] = (char) (x & 0xFF);
-    out[1] = (char) (x >> 8 & 0xFF);
-    out[2] = (char) (x >> 16 & 0xFF);
-    out[3] = (char) (x >> 24 & 0xFF);
+    out[3] = (char) (x & 0xFF);
+    out[2] = (char) (x >> 8 & 0xFF);
+    out[1] = (char) (x >> 16 & 0xFF);
+    out[0] = (char) (x >> 24 & 0xFF);
 }
 
 std::array<char, sizeof(Result)> serializeResult(const Result& result) {
@@ -165,6 +165,7 @@ int main() {
     std::cout << woodlandMansionSeed(-69, 420) << std::endl;
 
     for (int x = -WOODLAND_BOUNDS; x <= WOODLAND_BOUNDS; x++) {
+        fmt::print("generating the big map currently at x={}\n", x);
         for (int z = -WOODLAND_BOUNDS; z <= WOODLAND_BOUNDS; z++) {
             bigMap[SmallSeed{woodlandMansionSeed(x, z)}] = Pos{SmallInt{x}, SmallInt{z}};
         }
@@ -179,6 +180,7 @@ int main() {
     std::filesystem::path outDir{"out"};
     std::filesystem::create_directory(outDir);
     const auto threadCount = std::thread::hardware_concurrency();
+    fmt::print("thread count {}\n", threadCount);
     std::atomic_int result_count{};
     std::vector<std::jthread> threads;
     auto prev_time = std::chrono::steady_clock::now();
@@ -192,11 +194,14 @@ int main() {
                 auto err = std::error_code{};
                 auto size = std::filesystem::file_size(file, err);
                 // if file exists and the size is what we expect, skip
+                if (abs(x) % threadCount != i) continue;
                 if (!err && size == EXPECTED_FILE_SIZE) {
+                    fmt::print("skipping already completed file {}\n", x);
                     continue;
                 }
-                if (abs(x) % threadCount != i) continue;
                 for (int z = -WOODLAND_BOUNDS; z <= WOODLAND_BOUNDS; z++) {
+                    if (!(z & 127))
+                    fmt::print("thread {} is at x={} z={}\n", i, x, z);
                     auto seed = woodlandMansionSeed(x, z);
                     auto [steps, pos] = stepsForSeed(seed, bigMap);
                     results.push_back(Result{
@@ -204,7 +209,7 @@ int main() {
                         .end = pos,
                         .steps = steps
                     });
-                    /*result_count++;
+                    result_count++;
                     if (result_count % 1'000 == 0) {
                         auto time = std::chrono::steady_clock::now();
                         auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(time - prev_time).count();
@@ -213,7 +218,7 @@ int main() {
                         const auto percent = ((double)result_count / (double)end) * 100;
                         fmt::print("At step {} out of {} ({:.4f}%)\n", result_count, end, percent);
                         fmt::print("1000 results took {} ms ({} s)\n", millis, millis / 1000);
-                    }*/
+                    }
                 }
                 auto end_time = std::chrono::steady_clock::now();
                 auto duration = std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time).count();

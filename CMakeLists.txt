@@ -1,9 +1,9 @@
-cmake_minimum_required(VERSION 3.25)
+cmake_minimum_required(VERSION 3.16)
 project(mansion_seeds)
 
 set(CMAKE_CXX_STANDARD 20)
-
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -flto")
+set(ABSL_PROPAGATE_CXX_STD 1)
+#set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -flto")
 
 find_package(PkgConfig REQUIRED)
 #pkg_check_modules(ABSL_HASHMAP REQUIRED IMPORTED_TARGET absl_flat_hash_map)
