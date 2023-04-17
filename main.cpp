@@ -163,7 +163,7 @@ int main() {
     constexpr auto neededCapacity = (WOODLAND_BOUNDS * 2) * (WOODLAND_BOUNDS * 2);
     bigMap.reserve(neededCapacity + 1000);
     std::cout << woodlandMansionSeed(-69, 420) << std::endl;
-    std::cout << "meow! v2" << std::endl;
+    std::cout << "meow! v3" << std::endl;
     for (int x = -WOODLAND_BOUNDS; x <= WOODLAND_BOUNDS; x++) {
         if (!(x&127))
         fmt::print("generating the big map currently at x={}\n", x);
@@ -191,8 +191,8 @@ int main() {
         threads.emplace_back([i, threadCount, &bigMap, &result_count, &prev_time, outDir] {
             std::vector<Result> results;
             results.reserve(MANSIONS_IN_ROW);
-            auto start_time = std::chrono::steady_clock::now();
             for (int x = -WOODLAND_BOUNDS; x <= WOODLAND_BOUNDS; x++) {
+                auto start_time = std::chrono::steady_clock::now();
                 auto file = outDir / std::to_string(x);
                 auto err = std::error_code{};
                 auto size = std::filesystem::file_size(file, err);
@@ -215,7 +215,7 @@ int main() {
                         .end = pos,
                         .steps = steps
                     });
-                    result_count++;
+                    /*result_count++;
                     if (result_count % 20'000 == 0) {
                         auto time = std::chrono::steady_clock::now();
                         auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(time - prev_time).count();
@@ -225,7 +225,7 @@ int main() {
                         fmt::print("At step {} out of {} ({:.4f}%)\n", result_count, end, percent);
                         fmt::print("20000 results took {} ms ({} s)\n", millis, millis / 1000);
                         std::fflush(stdout);
-                    }
+                    }*/
                 }
                 auto end_time = std::chrono::steady_clock::now();
                 auto duration = std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time).count();
