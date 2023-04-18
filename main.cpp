@@ -163,7 +163,7 @@ int main() {
     constexpr auto neededCapacity = (WOODLAND_BOUNDS * 2) * (WOODLAND_BOUNDS * 2);
     bigMap.reserve(neededCapacity + 1000);
     std::cout << woodlandMansionSeed(-69, 420) << std::endl;
-    std::cout << "meow! v3" << std::endl;
+    std::cout << "meow! v4" << std::endl;
     for (int x = -WOODLAND_BOUNDS; x <= WOODLAND_BOUNDS; x++) {
         if (!(x&127))
         fmt::print("generating the big map currently at x={}\n", x);
