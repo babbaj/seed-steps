@@ -189,9 +189,9 @@ int main() {
     auto prev_time = std::chrono::steady_clock::now();
     for (int i = 0; i < threadCount; i++) {
         threads.emplace_back([i, threadCount, &bigMap, &result_count, &prev_time, outDir] {
-            std::vector<Result> results;
-            results.reserve(MANSIONS_IN_ROW);
             for (int x = -WOODLAND_BOUNDS; x <= WOODLAND_BOUNDS; x++) {
+                std::vector<Result> results;
+                results.reserve(MANSIONS_IN_ROW);
                 auto start_time = std::chrono::steady_clock::now();
                 auto file = outDir / std::to_string(x);
                 auto err = std::error_code{};
