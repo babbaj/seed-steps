@@ -158,10 +158,10 @@ void writeResults(std::span<Result> results, const std::filesystem::path& path) 
 
 
 int main() {
-    int myidx = 7;
+    int myidx = 11;
 
-    int allidx = 8;
-    fmt::print("I am thread {} of {}\n", myidx, allidx);
+    int allidx = 12;
+    fmt::print("I am server {} of {}\n", myidx, allidx);
     //std::cout << EXPECTED_FILE_SIZE << std::endl;
     //return 0;
     auto bigMap = absl::flat_hash_map<SmallSeed, Pos>{};
