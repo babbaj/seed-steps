@@ -91,16 +91,18 @@ struct Pos {
     SmallInt z{};
 };
 
-std::pair<int, Pos> stepsForSeed(int64_t seed, const absl::flat_hash_map<SmallSeed, Pos>& map) {
+std::optional<std::pair<int, Pos>> stepsForSeed(int64_t seed, const absl::flat_hash_map<SmallSeed, Pos>& map) {
     int i = 1;
-    while (true) {
+    while (i <= 10000) {
+    //while (true) {
         seed = nextSeed(seed);
         auto it = map.find(SmallSeed{seed});
         if (it != map.end()) {
-            return {i, it->second};
+            return {{i, it->second}};
         }
         i++;
     }
+    return {};
 }
 
 struct Result {
@@ -198,7 +200,7 @@ int main() {
                 auto size = std::filesystem::file_size(file, err);
                 // if file exists and the size is what we expect, skip
                 if (abs(x) % threadCount != i) continue;
-                if (!err && size == EXPECTED_FILE_SIZE) {
+                if (!err /*&& size == EXPECTED_FILE_SIZE*/) {
                     fmt::print("skipping already completed file {}\n", x);
                     std::fflush(stdout);
                     continue;
@@ -209,12 +211,15 @@ int main() {
                         std::fflush(stdout);
                     }
                     auto seed = woodlandMansionSeed(x, z);
-                    auto [steps, pos] = stepsForSeed(seed, bigMap);
-                    results.push_back(Result{
-                        .start = {x, z},
-                        .end = pos,
-                        .steps = steps
-                    });
+                    auto uwu = stepsForSeed(seed, bigMap);
+                    if (uwu) {
+                        auto [steps, pos] = *uwu;
+                        results.push_back(Result{
+                                .start = {x, z},
+                                .end = pos,
+                                .steps = steps
+                        });
+                    }
                     /*result_count++;
                     if (result_count % 20'000 == 0) {
                         auto time = std::chrono::steady_clock::now();
