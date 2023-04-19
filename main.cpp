@@ -161,7 +161,7 @@ int main() {
     int myidx = 7;
 
     int allidx = 8;
-    fmt::print("I am thread {} of {}", myidx, allidx);
+    fmt::print("I am thread {} of {}\n", myidx, allidx);
     //std::cout << EXPECTED_FILE_SIZE << std::endl;
     //return 0;
     auto bigMap = absl::flat_hash_map<SmallSeed, Pos>{};
