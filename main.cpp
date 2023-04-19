@@ -61,6 +61,7 @@ struct SmallSeed {
     }
 } __attribute__((packed));
 
+
 bool operator==(SmallSeed lhs, SmallSeed rhs) {
     return lhs.bits == rhs.bits;
 }
@@ -159,6 +160,10 @@ void writeResults(std::span<Result> results, const std::filesystem::path& path) 
 
 
 int main() {
+    int myidx = 7;
+
+    int allidx = 8;
+    fmt::print("I am thread {} of {}", myidx, allidx);
     //std::cout << EXPECTED_FILE_SIZE << std::endl;
     //return 0;
     auto bigMap = absl::flat_hash_map<SmallSeed, Pos>{};
@@ -185,12 +190,14 @@ int main() {
     std::filesystem::create_directory(outDir);
     const auto threadCount = std::thread::hardware_concurrency();
     fmt::print("thread count {}\n", threadCount);
+    const auto biggerThreadCount = threadCount * allidx;
+    fmt::print("bigger thread count {}\n", biggerThreadCount);
     std::fflush(stdout);
     std::atomic_int result_count{};
     std::vector<std::jthread> threads;
     auto prev_time = std::chrono::steady_clock::now();
     for (int i = 0; i < threadCount; i++) {
-        threads.emplace_back([i, threadCount, &bigMap, &result_count, &prev_time, outDir] {
+        threads.emplace_back([i, threadCount, biggerThreadCount, myidx, &bigMap, &result_count, &prev_time, outDir] {
             for (int x = -WOODLAND_BOUNDS; x <= WOODLAND_BOUNDS; x++) {
                 std::vector<Result> results;
                 results.reserve(MANSIONS_IN_ROW);
@@ -199,7 +206,8 @@ int main() {
                 auto err = std::error_code{};
                 auto size = std::filesystem::file_size(file, err);
                 // if file exists and the size is what we expect, skip
-                if (abs(x) % threadCount != i) continue;
+                //fmt::print("test {} {} {} {}\n", abs(x), abs(x) % biggerThreadCount, i, i + myidx * threadCount);
+                if (abs(x) % biggerThreadCount != i + myidx * threadCount) continue;
                 if (!err /*&& size == EXPECTED_FILE_SIZE*/) {
                     fmt::print("skipping already completed file {}\n", x);
                     std::fflush(stdout);
